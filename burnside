@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Southern MS Trading</title>
+
+<style>
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  background: linear-gradient(135deg, #1f4fa3, #4b7bec);
+  color: white;
+}
+
+header {
+  text-align: center;
+  padding: 20px;
+}
+
+.container {
+  max-width: 600px;
+  margin: auto;
+  padding: 10px;
+}
+
+.card {
+  background: white;
+  color: black;
+  border-radius: 14px;
+  padding: 15px;
+  margin-bottom: 12px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+}
+
+input, select {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+}
+
+button {
+  width: 100%;
+  padding: 10px;
+  border-radius: 10px;
+  border: none;
+  background: #1f4fa3;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #163b7a;
+}
+
+.badge {
+  display: inline-block;
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.available { background: #2ecc71; color: white; }
+.pending { background: #f1c40f; color: black; }
+.completed { background: #95a5a6; color: white; }
+
+.warning {
+  background: #ffdddd;
+  color: #900;
+  padding: 10px;
+  border-radius: 10px;
+  font-weight: bold;
+  margin-bottom: 15px;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>Southern Middle School Trading</h1>
+  <p>Cash-only trading at school</p>
+</header>
+
+<div class="container">
+
+  <div class="warning">
+    ⚠️ CASH ONLY — Pay in person at school
+  </div>
+
+  <!-- LOGIN -->
+  <div class="card" id="auth">
+    <input id="username" placeholder="Your name">
+    <select id="grade">
+      <option>6th Grade</option>
+      <option>7th Grade</option>
+      <option>8th Grade</option>
+    </select>
+    <button onclick="login()">Enter</button>
+  </div>
+
+  <!-- APP -->
+  <div id="app" style="display:none;">
+
+    <div class="card">
+      <h3 id="welcome"></h3>
+      <button onclick="logout()">Log Out</button>
+    </div>
+
+    <div class="card">
+      <h3>Post an Item</h3>
+      <input id="item" placeholder="Item name">
+      <input id="price" placeholder="Price ($)">
+      <button onclick="createListing()">Post Listing</button>
+    </div>
+
+    <div class="card">
+      <h3>Marketplace</h3>
+      <div id="listings"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+let currentUser = null;
+
+// Load saved data
+let listings = JSON.parse(localStorage.getItem("listings")) || [];
+
+// LOGIN
+function login() {
+  const name = document.getElementById("username").value;
+  const grade = document.getElementById("grade").value;
+
+  if (!name) {
+    alert("Enter your name");
+    return;
+  }
+
+  currentUser = { name, grade };
+  localStorage.setItem("currentUser", JSON.stringify(currentUser));
+
+  document.getElementById("auth").style.display = "none";
+  document.getElementById("app").style.display = "block";
+  document.getElementById("welcome").innerText =
+    `Logged in as ${name} (${grade})`;
+
+  renderListings();
+}
+
+// LOGOUT
+function logout() {
+  currentUser = null;
+  localStorage.removeItem("currentUser");
+  location.reload();
+}
+
+// CREATE LISTING
+function createListing() {
+  const item = document.getElementById("item").value;
+  const price = document.getElementById("price").value;
+
+  if (!item || !price) {
+    alert("Fill out item and price");
+    return;
+  }
+
+  listings.push({
+    id: Date.now(),
+    item,
+    price,
+    seller: currentUser.name,
+    status: "Available"
+  });
+
+  save();
+  renderListings();
+}
+
+// BUY REQUEST
+function requestBuy(id) {
+  const l = listings.find(x => x.id === id);
+  l.status = "Pending – Pay at School";
+  l.buyer = currentUser.name;
+  save();
+  renderListings();
+}
+
+// MARK PAID
+function markPaid(id) {
+  const l = listings.find(x => x.id === id);
+  l.status = "Completed (Cash Paid)";
+  save();
+  renderListings();
+}
+
+// SAVE TO STORAGE
+function save() {
+  localStorage.setItem("listings", JSON.stringify(listings));
+}
+
+// DISPLAY LISTINGS
+function renderListings() {
+  const div = document.getElementById("listings");
+  div.innerHTML = "";
+
+  listings.forEach(l => {
+    let cls =
+      l.status.includes("Available") ? "available" :
+      l.status.includes("Pending") ? "pending" : "completed";
+
+    let html = `
+      <div class="card">
+        <b>${l.item}</b> - $${l.price}<br>
+        Seller: ${l.seller}<br>
+        <span class="badge ${cls}">${l.status}</span><br><br>
+    `;
+
+    if (l.status === "Available" && l.seller !== currentUser.name) {
+      html += `<button onclick="requestBuy(${l.id})">
+        Request Purchase
+      </button>`;
+    }
+
+    if (l.seller === currentUser.name &&
+        l.status === "Pending – Pay at School") {
+      html += `<button onclick="markPaid(${l.id})">
+        Mark Cash Paid
+      </button>`;
+    }
+
+    html += "</div>";
+    div.innerHTML += html;
+  });
+}
+
+// AUTO LOGIN
+const savedUser = JSON.parse(localStorage.getItem("currentUser"));
+if (savedUser) {
+  currentUser = savedUser;
+  document.getElementById("auth").style.display = "none";
+  document.getElementById("app").style.display = "block";
+  document.getElementById("welcome").innerText =
+    `Logged in as ${currentUser.name} (${currentUser.grade})`;
+  renderListings();
+}
+</script>
+
+</body>
+</html>
